@@ -1,7 +1,6 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
+// next.config.js
+module.exports = {
+  images: {
+    domains: ['interview-task-green.vercel.app'], // or whatever domain the images are from
+  },
 };
-
-export default nextConfig;
