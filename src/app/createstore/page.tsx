@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 
 const countries = ["Bangladesh", "USA", "Canada", "UK"];
 const categories = ["Fashion", "Electronics", "Food", "Books", "Any"];
 const currencies = ["BDT", "USD", "CAD", "GBP"];
-
 
 export default function CreateStore() {
   const [form, setForm] = useState({
@@ -39,26 +38,50 @@ export default function CreateStore() {
 
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
-    if (!form.name.trim())
+    if (!form.name.trim()) {
       newErrors.name = "Store name is required";
-    else if (form.name.trim().length < 3)
+    } else if (form.name.trim().length < 3) {
       newErrors.name = "Store name must be at least 3 characters long";
+    }
 
-    if (!form.domain.trim()) newErrors.domain = "Domain is required";
-    else if (!/^[a-z0-9]+$/i.test(form.domain))
+    if (!form.domain.trim()) {
+      newErrors.domain = "Domain is required";
+    } else if (!/^[a-z0-9]+$/i.test(form.domain)) {
       newErrors.domain = "Domain must contain only letters and numbers";
+    }
 
     if (!form.country) newErrors.country = "Country is required";
     if (!form.category) newErrors.category = "Category is required";
     if (!form.currency) newErrors.currency = "Currency is required";
 
-    if (!form.email.trim()) newErrors.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+    if (!form.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       newErrors.email = "Email must be in a valid format";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  const checkDomain = useCallback(async () => {
+    setCheckingDomain(true);
+    try {
+      const res = await axios.get(
+        `https://interview-task-green.vercel.app/task/domains/check/${form.domain}.expressitbd.com`
+      );
+      setDomainAvailable(!res.data.taken);
+      setErrors((prev) => ({
+        ...prev,
+        domain: res.data.taken ? "Domain is already taken" : "",
+      }));
+    } catch (err) {
+      setErrors((prev) => ({ ...prev, domain: "Error checking domain" }));
+      setDomainAvailable(null);
+    } finally {
+      setCheckingDomain(false);
+    }
+  }, [form.domain]);
 
   useEffect(() => {
     if (!form.domain) return;
@@ -68,29 +91,9 @@ export default function CreateStore() {
     }, 500);
 
     return () => clearTimeout(delayDebounce);
-  }, [form.domain]);
+  }, [form.domain, checkDomain]);
 
-  const checkDomain = async () => {
-    setCheckingDomain(true);
-    try {
-      const res = await axios.get(
-        `https://interview-task-green.vercel.app/task/domains/check/${form.domain}.expressitbd.com`
-      );
-      setDomainAvailable(!res.data.taken);
-      if (res.data.taken) {
-        setErrors((prev) => ({ ...prev, domain: "Domain is already taken" }));
-      } else {
-        setErrors((prev) => ({ ...prev, domain: "" }));
-      }
-    } catch (error) {
-      setErrors((prev) => ({ ...prev, domain: "Error checking domain" }));
-      setDomainAvailable(null);
-    } finally {
-      setCheckingDomain(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!validate()) return;
@@ -109,11 +112,13 @@ export default function CreateStore() {
       setDomainAvailable(true);
       setErrors((prev) => ({ ...prev, domain: "" }));
 
-      // ✅ Redirect to products page after success
       router.push("/product");
-
-    } catch (error: any) {
-      console.error("Error:", error?.response || error?.message || error);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        console.error("Axios error:", err.response?.data || err.message);
+      } else {
+        console.error("Unknown error:", err);
+      }
       alert("Failed to create store. Please try again.");
     }
   };
@@ -246,5 +251,4 @@ export default function CreateStore() {
       </form>
     </div>
   );
-  
 }
